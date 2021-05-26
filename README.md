@@ -1,1 +1,1 @@
-# VSGbc
+# VSGitBranchCleaner

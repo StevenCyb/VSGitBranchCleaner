@@ -1,6 +1,6 @@
 {
-	"name": "VSGbc",
-	"displayName": "vsgbc",
+	"name": "VSGitBranchCleaner",
+	"displayName": "VSGitBranchCleaner",
 	"description": "Clean local branches",
 	"version": "0.0.1",
 	"engines": {
@@ -10,13 +10,13 @@
 		"Other"
 	],
 	"activationEvents": [
-		"onCommand:vsgbc.run"
+		"onCommand:VSGitBranchCleaner.run"
 	],
 	"main": "./extension.js",
 	"contributes": {
 		"commands": [
 			{
-				"command": "vsgbc.run",
+				"command": "VSGitBranchCleaner.run",
 				"title": "Clean local branches"
 			}
 		]

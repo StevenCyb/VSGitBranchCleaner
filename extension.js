@@ -4,8 +4,8 @@ const vscode = require('vscode');
  * @param {vscode.ExtensionContext} context
  */
 function activate(context) {
-	context.subscriptions.push(vscode.commands.registerCommand('vsgbc.run', function () {
-		vscode.window.showInformationMessage('Hello World from vsgbc!');
+	context.subscriptions.push(vscode.commands.registerCommand('VSGitBranchCleaner.run', function () {
+		vscode.window.showInformationMessage('Hello World from VSGitBranchCleaner!');
 		vscode.window.withProgress({
 			location: vscode.ProgressLocation.Notification,
 			title: "I am long running!",
