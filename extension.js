@@ -1,4 +1,5 @@
 const vscode = require('vscode');
+const fs = require('fs');
 // const { exec } = require("child_process");
 
 /**
@@ -81,7 +82,11 @@ function activate(context) {
 					() => {
 						return new Promise(function(resolve, reject) {
 							progress.report({ increment: 0, message: "Check current repository" });
-							//  TODO implement check
+							if(!fs.existsSync('.git')) {
+								reject('Directory is not a git repository');
+								return;
+							}
+
 							progress.report({ increment: 10 });
 		
 							setTimeout(() => { resolve({progress: progress, token: token}); }, 1000);
@@ -104,6 +109,9 @@ function activate(context) {
 
 						// Hand over to next task 
 						return nextTask(data);
+					}).catch((message) => { 
+						vscode.window.showErrorMessage(message);
+						resolve();
 					});
 				}, Promise.resolve());
 			});
