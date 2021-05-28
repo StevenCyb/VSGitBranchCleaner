@@ -124,11 +124,92 @@ function activate(context) {
 		});
 	}
 
-	// Delete dead branches task
-	const deleteDeadBranches = (data) => {
+	// Prepare dead branches delete task
+	const prepareDeleteDeadBranches = (data) => {
 		return new Promise(function(resolve, reject) {
 			data.progress.report({ increment: 0, message: "Delete dead branches" });
 
+			try {
+				var deleteBranchesCount = 0;
+
+				// Find dead branches except currently active 
+				for(var i=0; i < data.workspaces.length; i++) {
+					// Check if run canceled
+					if(data.token.isCancellationRequested) {
+						return;
+					}
+
+					data.workspaces[i].deadBranches = [];
+					for(var j=0; j < data.workspaces[i].localBranches.length; j++) {
+						// Check if run canceled
+						if(data.token.isCancellationRequested) {
+							return;
+						}
+
+						// Check if is empty string
+						if(data.workspaces[i].localBranches[j] == '' 
+							|| data.workspaces[i].localBranches[j].startsWith('*')) {
+							continue;
+						}
+
+						var existsOnRemote = false; 
+
+						for(var k=0; k < data.workspaces[i].remoteBranches.length; k++) {
+							// Check if run canceled
+							if(data.token.isCancellationRequested) {
+								return;
+							}
+
+							if(data.workspaces[i].localBranches[j] 
+									== data.workspaces[i].remoteBranches[k]) {
+								existsOnRemote = true;
+								break;
+							}
+						}
+						
+						if(!existsOnRemote) {
+							deleteBranchesCount += 1;
+
+							data.workspaces[i].deadBranches.push(
+								data.workspaces[i].localBranches[j]
+							);
+						}
+					}
+				}
+			} catch(err) {
+				reject(err.message);
+			}
+			data.progress.report({ increment: 10 });
+			
+			// Check if something to delete
+			if(deleteBranchesCount == 0) {
+				vscode.window.showInformationMessage('No dead branches found.')
+
+				data.parentResolve();
+				return;
+			}
+
+			// Ask if really want to delete and how
+			vscode.window
+        .showInformationMessage(
+					`Delete ${deleteBranchesCount} branch in ${data.workspaces.length} workspaces?`, 
+					"Yes", "Yes (force)", "No")
+        .then(selection => {
+					//  Check if user has canceled dialog
+					if(!selection || selection == 'No') {
+						data.parentResolve();
+						return;
+					}
+
+					data.forceDelete = selection == 'Yes (force)';
+					resolve(data);
+				}); 
+		});
+	}
+
+	// Delete dead branches task
+	const deleteDeadBranches = (data) => {
+		return new Promise(function(resolve, reject) {
 			// TODO find dead branches except currently active 
 			
 			//  TODO ask once if want to delete n dead branches (list names?)
@@ -139,7 +220,7 @@ function activate(context) {
 			// TODO Show ready and increase to max 
 			
 	
-			setTimeout(() => { data.progress.report({ increment: 40 }); resolve(data); }, 1000);
+			setTimeout(() => { data.progress.report({ increment: 30 }); resolve(data); }, 1000);
 		});
 	}
 
@@ -203,7 +284,8 @@ function activate(context) {
 						});
 					},
 					// List of tasks that are performed without external influence
-					fetchAllPrune, getLocalBranches, getRemoteBranches, deleteDeadBranches,
+					fetchAllPrune, getLocalBranches, getRemoteBranches, 
+					prepareDeleteDeadBranches, deleteDeadBranches,
 					() => {
 						progress.report({ increment: 5, message: "Ready" });
 						// Wait 2 sec before closing progress view
