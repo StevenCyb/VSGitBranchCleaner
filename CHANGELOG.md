@@ -1,9 +1,10 @@
 # Change Log
 
 ## [Unreleased]
+- add templates for issues and feature requests
 - prepare package.json for publication
-- Add routine to delete branches
-- Add routine to fetch meta information
+- add routine to delete branches
+- add routine to fetch meta information
 - add routine to get local and remote branches
 - add repository check
-- Initial release
+- initial release
