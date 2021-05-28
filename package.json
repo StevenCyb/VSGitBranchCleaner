@@ -1,13 +1,34 @@
 {
-	"name": "VSGitBranchCleaner",
+	"name": "vsgitbranchcleaner",
 	"displayName": "VSGitBranchCleaner",
 	"description": "Clean local branches",
-	"version": "0.0.1",
+	"version": "0.1.0",
+	"publisher": "StevenCyb",
+	"homepage": "https://github.com/StevenCyb/VSGitBranchCleaner",
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/StevenCyb/VSGitBranchCleaner"
+	},
+	"bugs": {
+		"url": "https://github.com/StevenCyb/VSGitBranchCleaner/issues"
+	},
+	"license": "Apache License Version 2.0",
+	"author": {
+		"name": "Steven Cybinski"
+	},
+	"markdown": "github",
 	"engines": {
 		"vscode": "^1.56.0"
 	},
 	"categories": [
 		"Other"
+	],
+	"keywords": [
+		"vsgitbranchcleaner",
+		"git",
+		"branch",
+		"local",
+		"clean"
 	],
 	"activationEvents": [
 		"onCommand:VSGitBranchCleaner.run"
@@ -22,17 +43,10 @@
 		]
 	},
 	"scripts": {
-		"vscode:prepublish": "npm run compile",
-		"compile": "tsc -p ./",
-		"watch": "tsc -watch -p ./",
-		"lint": "eslint . --ext .ts,.tsx"
+		"vscode:prepublish": ""
 	},
 	"devDependencies": {
 		"@types/node": "^12.12.0",
-		"@types/vscode": "^1.32.0",
-		"@typescript-eslint/eslint-plugin": "^4.16.0",
-		"@typescript-eslint/parser": "^4.16.0",
-		"eslint": "^7.21.0",
-		"typescript": "^4.2.2"
+		"@types/vscode": "^1.32.0"
 	}
 }
