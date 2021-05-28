@@ -239,6 +239,7 @@ function activate(context) {
 							// Increase progress and resolve when ready
 							data.progress.report({ increment: progressFactor, message: 'Delete dead branches' });
 							if(resolveCounter == data.deleteBranchesCount) {
+								// BUG this never happened or nex task not running?
 								resolve(data);
 							}
 						}
