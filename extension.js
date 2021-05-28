@@ -126,8 +126,9 @@ function activate(context) {
 
 	// Prepare dead branches delete task
 	const prepareDeleteDeadBranches = (data) => {
+		data.progress.report({ increment: 0, message: "Delete dead branches" });
+		
 		return new Promise(function(resolve, reject) {
-			data.progress.report({ increment: 0, message: "Delete dead branches" });
 
 			try {
 				var deleteBranchesCount = 0;
@@ -202,6 +203,7 @@ function activate(context) {
 					}
 
 					data.forceDelete = selection == 'Yes (force)';
+					data.deleteBranchesCount = deleteBranchesCount;
 					resolve(data);
 				}); 
 		});
@@ -209,18 +211,39 @@ function activate(context) {
 
 	// Delete dead branches task
 	const deleteDeadBranches = (data) => {
-		return new Promise(function(resolve, reject) {
-			// TODO find dead branches except currently active 
-			
-			//  TODO ask once if want to delete n dead branches (list names?)
+		return new Promise(function(resolve) {
+			const progressFactor = 30 / data.deleteBranchesCount;
+			var resolveCounter = 0;
 
-			// TODO Loop and delete
-			// 			git -C ${self.repositoryPath} branch -d name
-			
-			// TODO Show ready and increase to max 
-			
-	
-			setTimeout(() => { data.progress.report({ increment: 30 }); resolve(data); }, 1000);
+			// Delete dead branches 
+			for(var i=0; i < data.workspaces.length; i++) {
+				// Check if run canceled
+				if(data.token.isCancellationRequested) {
+					return;
+				}
+
+				for(var j=0; j < data.workspaces[i].deadBranches.length; j++) {
+					const ownIndexI = i; 
+					const ownIndexJ = j; 
+
+					exec('git -C ' + data.workspaces[i].path + ' branch '
+						+ (data.forceDelete ? ' -D ' : ' -d ') 
+						+ data.workspaces[i].deadBranches[j], 
+						(err, _, stderr) => {
+							// Inform if delete failed
+							if (err || stderr) {
+								vscode.window.showWarningMessage(`The branch '${data.workspaces[ownIndexI].deadBranches[ownIndexJ]}' on workspace ${data.workspaces[ownIndexI].path}  is not fully merged. Use option 'Yes (force)' to delete the branch.`);
+							}
+
+							// Increase progress and resolve when ready
+							data.progress.report({ increment: progressFactor });
+							if(resolveCounter == data.deleteBranchesCount) {
+								resolve(data);
+							}
+						}
+					);
+				}
+			}
 		});
 	}
 
@@ -287,7 +310,7 @@ function activate(context) {
 					fetchAllPrune, getLocalBranches, getRemoteBranches, 
 					prepareDeleteDeadBranches, deleteDeadBranches,
 					() => {
-						progress.report({ increment: 5, message: "Ready" });
+						progress.report({ increment: 100, message: "Ready" });
 						// Wait 2 sec before closing progress view
 						setTimeout(() => { resolve(); }, 2000);
 					}
