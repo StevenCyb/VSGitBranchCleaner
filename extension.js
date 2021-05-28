@@ -23,12 +23,7 @@ function activate(context) {
 						return;
 					}
 
-					exec('git -C ' + data.workspaces[i].path + ' fetch --all --prune', (err, _, stderr) => {
-						if (err || stderr) {
-							reject(err ? err.message : stderr);
-							return;
-						}
-
+					exec('git -C ' + data.workspaces[i].path + ' fetch --all --prune', () => {
 						resolveCounter += 1;
 						if(resolveCounter == data.workspaces.length) {
 							data.progress.report({ increment: 20 });
@@ -238,8 +233,8 @@ function activate(context) {
 
 							// Increase progress and resolve when ready
 							data.progress.report({ increment: progressFactor, message: 'Delete dead branches' });
+							resolveCounter += 1;
 							if(resolveCounter == data.deleteBranchesCount) {
-								// BUG this never happened or nex task not running?
 								resolve(data);
 							}
 						}
