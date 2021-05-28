@@ -10,7 +10,7 @@ function activate(context) {
 	// Fetch all prune task
 	const fetchAllPrune = (data) => {
 		return new Promise(function(resolve, reject) {
-			data.progress.report({ increment: 0, message: "Update meta information" });
+			data.progress.report({ increment: 0, message: 'Update meta information' });
 
 			try {
 				// Helper to keep track of executed commands
@@ -45,7 +45,7 @@ function activate(context) {
 	// Get local branches task
 	const getLocalBranches = (data) => {
 		return new Promise(function(resolve, reject) {
-			data.progress.report({ increment: 0, message: "Get local branches" });
+			data.progress.report({ increment: 0, message: 'Get local branches' });
 			
 			try {
 				// Helper to keep track of executed commands
@@ -86,7 +86,7 @@ function activate(context) {
 	// Get remote branches task
 	const getRemoteBranches = (data) => {
 		return new Promise(function(resolve, reject) {
-			data.progress.report({ increment: 0, message: "Get remote branches" });
+			data.progress.report({ increment: 0, message: 'Get remote branches' });
 			
 			try {
 				// Helper to keep track of executed commands
@@ -126,7 +126,7 @@ function activate(context) {
 
 	// Prepare dead branches delete task
 	const prepareDeleteDeadBranches = (data) => {
-		data.progress.report({ increment: 0, message: "Delete dead branches" });
+		data.progress.report({ increment: 1, message: 'Delete dead branches' });
 		
 		return new Promise(function(resolve, reject) {
 
@@ -180,7 +180,7 @@ function activate(context) {
 			} catch(err) {
 				reject(err.message);
 			}
-			data.progress.report({ increment: 10 });
+			data.progress.report({ increment: 9 });
 			
 			// Check if something to delete
 			if(deleteBranchesCount == 0) {
@@ -194,7 +194,7 @@ function activate(context) {
 			vscode.window
         .showInformationMessage(
 					`Delete ${deleteBranchesCount} branch in ${data.workspaces.length} workspaces?`, 
-					"Yes", "Yes (force)", "No")
+					'Yes', 'Yes (force)', 'No')
         .then(selection => {
 					//  Check if user has canceled dialog
 					if(!selection || selection == 'No') {
@@ -223,6 +223,7 @@ function activate(context) {
 				}
 
 				for(var j=0; j < data.workspaces[i].deadBranches.length; j++) {
+					data.progress.report({ increment: progressFactor, message: 'Delete dead branches - ' +  data.workspaces[i].deadBranches[j]});
 					const ownIndexI = i; 
 					const ownIndexJ = j; 
 
@@ -236,7 +237,7 @@ function activate(context) {
 							}
 
 							// Increase progress and resolve when ready
-							data.progress.report({ increment: progressFactor });
+							data.progress.report({ increment: progressFactor, message: 'Delete dead branches' });
 							if(resolveCounter == data.deleteBranchesCount) {
 								resolve(data);
 							}
