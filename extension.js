@@ -10,7 +10,7 @@ function activate(context) {
 	// Fetch all prune task
 	const fetchAllPrune = (data) => {
 		return new Promise(function(resolve, reject) {
-			data.progress.report({ increment: 0, message: "Update meta information" });
+			data.progress.report({ increment: 0, message: 'Update meta information' });
 
 			try {
 				// Helper to keep track of executed commands
@@ -23,12 +23,7 @@ function activate(context) {
 						return;
 					}
 
-					exec('git -C ' + data.workspaces[i].path + ' fetch --all --prune', (err, _, stderr) => {
-						if (err || stderr) {
-							reject(err ? err.message : stderr);
-							return;
-						}
-
+					exec('git -C ' + data.workspaces[i].path + ' fetch --all --prune', () => {
 						resolveCounter += 1;
 						if(resolveCounter == data.workspaces.length) {
 							data.progress.report({ increment: 20 });
@@ -45,7 +40,7 @@ function activate(context) {
 	// Get local branches task
 	const getLocalBranches = (data) => {
 		return new Promise(function(resolve, reject) {
-			data.progress.report({ increment: 0, message: "Get local branches" });
+			data.progress.report({ increment: 0, message: 'Get local branches' });
 			
 			try {
 				// Helper to keep track of executed commands
@@ -86,7 +81,7 @@ function activate(context) {
 	// Get remote branches task
 	const getRemoteBranches = (data) => {
 		return new Promise(function(resolve, reject) {
-			data.progress.report({ increment: 0, message: "Get remote branches" });
+			data.progress.report({ increment: 0, message: 'Get remote branches' });
 			
 			try {
 				// Helper to keep track of executed commands
@@ -124,22 +119,128 @@ function activate(context) {
 		});
 	}
 
+	// Prepare dead branches delete task
+	const prepareDeleteDeadBranches = (data) => {
+		data.progress.report({ increment: 1, message: 'Delete dead branches' });
+		
+		return new Promise(function(resolve, reject) {
+
+			try {
+				var deleteBranchesCount = 0;
+
+				// Find dead branches except currently active 
+				for(var i=0; i < data.workspaces.length; i++) {
+					// Check if run canceled
+					if(data.token.isCancellationRequested) {
+						return;
+					}
+
+					data.workspaces[i].deadBranches = [];
+					for(var j=0; j < data.workspaces[i].localBranches.length; j++) {
+						// Check if run canceled
+						if(data.token.isCancellationRequested) {
+							return;
+						}
+
+						// Check if is empty string
+						if(data.workspaces[i].localBranches[j] == '' 
+							|| data.workspaces[i].localBranches[j].startsWith('*')) {
+							continue;
+						}
+
+						var existsOnRemote = false; 
+
+						for(var k=0; k < data.workspaces[i].remoteBranches.length; k++) {
+							// Check if run canceled
+							if(data.token.isCancellationRequested) {
+								return;
+							}
+
+							if(data.workspaces[i].localBranches[j] 
+									== data.workspaces[i].remoteBranches[k]) {
+								existsOnRemote = true;
+								break;
+							}
+						}
+						
+						if(!existsOnRemote) {
+							deleteBranchesCount += 1;
+
+							data.workspaces[i].deadBranches.push(
+								data.workspaces[i].localBranches[j]
+							);
+						}
+					}
+				}
+			} catch(err) {
+				reject(err.message);
+			}
+			data.progress.report({ increment: 9 });
+			
+			// Check if something to delete
+			if(deleteBranchesCount == 0) {
+				vscode.window.showInformationMessage('No dead branches found.')
+
+				data.parentResolve();
+				return;
+			}
+
+			// Ask if really want to delete and how
+			vscode.window
+        .showInformationMessage(
+					`Delete ${deleteBranchesCount} branch in ${data.workspaces.length} workspaces?`, 
+					'Yes', 'Yes (force)', 'No')
+        .then(selection => {
+					//  Check if user has canceled dialog
+					if(!selection || selection == 'No') {
+						data.parentResolve();
+						return;
+					}
+
+					data.forceDelete = selection == 'Yes (force)';
+					data.deleteBranchesCount = deleteBranchesCount;
+					resolve(data);
+				}); 
+		});
+	}
+
 	// Delete dead branches task
 	const deleteDeadBranches = (data) => {
-		return new Promise(function(resolve, reject) {
-			data.progress.report({ increment: 0, message: "Delete dead branches" });
+		return new Promise(function(resolve) {
+			const progressFactor = 30 / data.deleteBranchesCount;
+			var resolveCounter = 0;
 
-			// TODO find dead branches except currently active 
-			
-			//  TODO ask once if want to delete n dead branches (list names?)
+			// Delete dead branches 
+			for(var i=0; i < data.workspaces.length; i++) {
+				// Check if run canceled
+				if(data.token.isCancellationRequested) {
+					return;
+				}
 
-			// TODO Loop and delete
-			// 			git -C ${self.repositoryPath} branch -d name
-			
-			// TODO Show ready and increase to max 
-			
-	
-			setTimeout(() => { data.progress.report({ increment: 40 }); resolve(data); }, 1000);
+				for(var j=0; j < data.workspaces[i].deadBranches.length; j++) {
+					data.progress.report({ increment: progressFactor, message: 'Delete dead branches - ' +  data.workspaces[i].deadBranches[j]});
+					const ownIndexI = i; 
+					const ownIndexJ = j; 
+
+					exec('git -C ' + data.workspaces[i].path + ' branch '
+						+ (data.forceDelete ? ' -D ' : ' -d ') 
+						+ data.workspaces[i].deadBranches[j], 
+						(err, _, stderr) => {
+							// Inform if delete failed
+							if (err || stderr) {
+								vscode.window.showWarningMessage(`The branch '${data.workspaces[ownIndexI].deadBranches[ownIndexJ]}' on workspace ${data.workspaces[ownIndexI].path}  is not fully merged. Use option 'Yes (force)' to delete the branch.`);
+							}
+
+							// Increase progress and resolve when ready
+							data.progress.report({ increment: progressFactor, message: 'Delete dead branches' });
+							resolveCounter += 1;
+							if(resolveCounter == data.deleteBranchesCount) {
+								resolve(data);
+							}
+						}
+					);
+				}
+			}
 		});
 	}
 
@@ -203,9 +304,10 @@ function activate(context) {
 						});
 					},
 					// List of tasks that are performed without external influence
-					fetchAllPrune, getLocalBranches, getRemoteBranches, deleteDeadBranches,
+					fetchAllPrune, getLocalBranches, getRemoteBranches, 
+					prepareDeleteDeadBranches, deleteDeadBranches,
 					() => {
-						progress.report({ increment: 5, message: "Ready" });
+						progress.report({ increment: 100, message: "Ready" });
 						// Wait 2 sec before closing progress view
 						setTimeout(() => { resolve(); }, 2000);
 					}
