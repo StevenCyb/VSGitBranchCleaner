@@ -1,6 +1,7 @@
-const vscode = require('vscode');
 const fs = require('fs');
-// const { exec } = require("child_process");
+var path = require('path');
+const vscode = require('vscode');
+const { exec } = require("child_process");
 
 /**
  * @param {vscode.ExtensionContext} context
@@ -10,11 +11,34 @@ function activate(context) {
 	const fetchAllPrune = (data) => {
 		return new Promise(function(resolve, reject) {
 			data.progress.report({ increment: 0, message: "Update meta information" });
-			//  TODO 
-			console.log('Run: git fetch --all --prune');
-			data.progress.report({ increment: 20 });
-			
-			setTimeout(() => { resolve(data); }, 1000);
+
+			try {
+				// Helper to keep track of executed commands
+				let resolveCounter = 0;
+
+				// Run git fetch all prune for all filtered workspaces
+				for(var i=0; i < data.workspaces.length; i++) {
+					// Check if run canceled
+					if(data.token.isCancellationRequested) {
+						return;
+					}
+
+					exec('git -C ' + data.workspaces[i].path + ' fetch --all --prune', (err, _, stderr) => {
+						if (err || stderr) {
+							reject(err ? err.message : stderr);
+							return;
+						}
+
+						resolveCounter += 1;
+						if(resolveCounter == data.workspaces.length) {
+							data.progress.report({ increment: 20 });
+							resolve(data);
+						}
+					});
+				}
+			} catch(err) {
+				reject(err.message);
+			}
 		});
 	};
 
@@ -22,12 +46,40 @@ function activate(context) {
 	const getLocalBranches = (data) => {
 		return new Promise(function(resolve, reject) {
 			data.progress.report({ increment: 0, message: "Get local branches" });
-			//  TODO 
-			console.log('Run: git branch');
-			data.local = ['a', 'b', 'c'];
-			data.progress.report({ increment: 10 });
-	
-			setTimeout(() => { resolve(data); }, 1000);
+			
+			try {
+				// Helper to keep track of executed commands
+				let resolveCounter = 0;
+
+				// Get local branches
+				for(var i=0; i < data.workspaces.length; i++) {
+					// Check if run canceled
+					if(data.token.isCancellationRequested) {
+						return;
+					}
+
+					const ownIndex = i; 
+					exec('git -C ' + data.workspaces[ownIndex].path + ' branch', (err, stdout, stderr) => {
+						if (err || stderr) {
+							reject(err ? err.message : stderr);
+							return;
+						}
+						
+						data.workspaces[ownIndex].localBranches = stdout
+							.replace(/(\t| )/g, '')
+							.toLocaleLowerCase()
+							.split('\n');
+						
+						resolveCounter += 1;
+						if(resolveCounter == data.workspaces.length) {
+							data.progress.report({ increment: 10 });
+							resolve(data);
+						}
+					});
+				}
+			} catch(err) {
+				reject(err.message);
+			}
 		});
 	}
 
@@ -35,12 +87,40 @@ function activate(context) {
 	const getRemoteBranches = (data) => {
 		return new Promise(function(resolve, reject) {
 			data.progress.report({ increment: 0, message: "Get remote branches" });
-			//  TODO 
-			console.log('Run: git branch -r');
-			data.remote = ['a', 'b'];
-			data.progress.report({ increment: 25 });
-	
-			setTimeout(() => { resolve(data); }, 1000);
+			
+			try {
+				// Helper to keep track of executed commands
+				let resolveCounter = 0;
+
+				// Get remote branches
+				for(var i=0; i < data.workspaces.length; i++) {
+					// Check if run canceled
+					if(data.token.isCancellationRequested) {
+						return;
+					}
+					
+					const ownIndex = i; 
+					exec('git -C ' + data.workspaces[ownIndex].path + ' branch -r', (err, stdout, stderr) => {
+						if (err || stderr) {
+							reject(err ? err.message : stderr);
+							return;
+						}
+						
+						data.workspaces[ownIndex].remoteBranches = stdout
+							.replace(/(\t| |\*|origin\/)/g, '')
+							.toLocaleLowerCase()
+							.split('\n');
+
+						resolveCounter += 1;
+						if(resolveCounter == data.workspaces.length) {
+							data.progress.report({ increment: 20 });
+							resolve(data);
+						}
+					});
+				}
+			} catch(err) {
+				reject(err.message);
+			}
 		});
 	}
 
@@ -49,16 +129,17 @@ function activate(context) {
 		return new Promise(function(resolve, reject) {
 			data.progress.report({ increment: 0, message: "Delete dead branches" });
 
-			// TODO find dead branches except currently active and 
-			// Loop and delte
-			// Check if canceled 
-			if(data.token.isCancellationRequested) {
-				return;
-			}
+			// TODO find dead branches except currently active 
+			
+			//  TODO ask once if want to delete n dead branches (list names?)
 
-			data.progress.report({ increment: 40 });
+			// TODO Loop and delete
+			// 			git -C ${self.repositoryPath} branch -d name
+			
+			// TODO Show ready and increase to max 
+			
 	
-			setTimeout(() => { resolve(data); }, 1000);
+			setTimeout(() => { data.progress.report({ increment: 40 }); resolve(data); }, 1000);
 		});
 	}
 
@@ -79,22 +160,53 @@ function activate(context) {
 
 				// Define task chain
 				let tasks = [
+					// Prepend function to prepare this job
 					() => {
 						return new Promise(function(resolve, reject) {
 							progress.report({ increment: 0, message: "Check current repository" });
-							if(!fs.existsSync('.git')) {
-								reject('Directory is not a git repository');
-								return;
-							}
+							
+							try {
+								// Get all active workspace folders
+								var workspaces = vscode.workspace.workspaceFolders,
+										gitWorkspaces = [];
+								
+								// Check if at least one workspace folder active
+								if(workspaces.length == 0) {
+									throw 'No workspace open';
+								}
 
-							progress.report({ increment: 10 });
-		
-							setTimeout(() => { resolve({progress: progress, token: token}); }, 1000);
+								// Filter the paths to workspace folders that have a .git
+								for(var i=0; i < workspaces.length; i++) {
+									// Check if run canceled
+									if(token.isCancellationRequested) {
+										return;
+									}
+
+									if(fs.existsSync(path.join(workspaces[i].uri.fsPath, '.git'))) {
+										gitWorkspaces.push({
+											path: path.join(workspaces[i].uri.fsPath)
+										});
+									}
+								}
+								
+								// Check if at least one workspace had a .git
+								if(gitWorkspaces.length == 0) {
+									throw 'No git repositories in active workspaces';
+								}
+
+								// Increment progress and hand over to next task
+								progress.report({ increment: 5 });
+								resolve({progress: progress, token: token, workspaces: gitWorkspaces});
+							} catch(err) {
+								reject(err.message);
+							}
 						});
 					},
+					// List of tasks that are performed without external influence
 					fetchAllPrune, getLocalBranches, getRemoteBranches, deleteDeadBranches,
 					() => {
 						progress.report({ increment: 5, message: "Ready" });
+						// Wait 2 sec before closing progress view
 						setTimeout(() => { resolve(); }, 2000);
 					}
 				];
