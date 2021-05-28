@@ -1,0 +1,29 @@
+name: ci-release-versioned
+
+on:
+  push:
+    tags:
+      - "v[0-9]+.[0-9]+.[0-9]+"
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-node@v1
+        with:
+          node-version: 12
+      - run: npm ci
+      - name: Publish to Visual Studio Marketplace
+        uses: HaaLeo/publish-vscode-extension@v0
+        with:
+          pat: ${{ secrets.VS_MARKETPLACE_TOKEN }}
+          registryUrl: https://marketplace.visualstudio.com
+      - run: mkdir -p ./artefacts
+      - run: cp ./*.vsix ./artefacts
+      - name: Archive
+        uses: actions/upload-artifact@v2
+        with:
+          name: extension
+          path: ./artefacts
+          retention-days: 2

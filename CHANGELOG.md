@@ -1,6 +1,7 @@
 # Change Log
 
 ## [Unreleased]
+- add pipeline to deploy extension
 - add templates for issues and feature requests
 - prepare package.json for publication
 - add routine to delete branches
